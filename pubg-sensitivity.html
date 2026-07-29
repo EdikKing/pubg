@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0c0f0d">
-  <meta name="application-version" content="1.2.0">
+  <meta name="application-version" content="1.2.1">
   <title>PUBG SENS LAB｜专属灵敏度调试助手</title>
   <style>
     :root{
@@ -91,6 +91,10 @@
     .result-top{display:flex;align-items:center;justify-content:space-between;gap:20px;position:relative;z-index:2}
     .result h2{font-size:clamp(28px,4vw,46px);letter-spacing:-.05em;margin:0}
     .result p{margin:7px 0 0;color:#415023;font-size:13px}
+    .turn-calibrator{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:15px}
+    .turn-calibrator>span{font:900 11px/1 monospace;color:#344019;margin-right:3px}
+    .turn-calibrator button{border:1px solid rgba(18,23,14,.35);background:transparent;color:#273116;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:800;cursor:pointer}
+    .turn-calibrator button.active{background:#11160d;color:var(--acid);border-color:#11160d}
     .generate{border:0;background:#11160d;color:#f6f8ef;padding:15px 22px;border-radius:12px;font-weight:900;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.18)}
     .generate:hover{transform:translateY(-1px)}
     .sensitivity-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:26px;position:relative;z-index:2}
@@ -126,7 +130,7 @@
   <div class="wrap">
     <header class="topbar">
       <div class="brand"><span class="brand-mark"></span>PUBG <b>SENS LAB</b></div>
-      <div class="version">APP v1.2.0 · PUBG 42.2</div>
+      <div class="version">APP v1.2.1 · PUBG 42.2</div>
     </header>
 
     <section class="hero">
@@ -179,7 +183,14 @@
     </section>
 
     <section class="result">
-      <div class="result-top"><div><h2>你的 PUBG 专属灵敏度</h2><p id="resultNote">完成测试后生成；也可先按当前设备参数生成基准方案。</p></div><button class="generate" id="generateBtn">生成 / 刷新方案 →</button></div>
+      <div class="result-top">
+        <div>
+          <h2>你的 PUBG 专属灵敏度</h2>
+          <p id="resultNote">完成测试后生成；也可先按当前设备参数生成基准方案。</p>
+          <div class="turn-calibrator"><span>转身手感校正</span><button data-turn-feel="slow">偏慢 · 提高</button><button data-turn-feel="neutral" class="active">正合适</button><button data-turn-feel="fast">偏快 · 降低</button></div>
+        </div>
+        <button class="generate" id="generateBtn">生成 / 刷新方案 →</button>
+      </div>
       <div class="sensitivity-grid">
         <div class="sens"><span>常规灵敏度</span><b id="generalOut">35</b></div>
         <div class="sens"><span>垂直灵敏度增强</span><b id="verticalOut">1.00</b></div>
@@ -199,7 +210,7 @@
       <div class="advice-card"><h3>微调提升建议</h3><div class="advice-list" id="adviceList"></div></div>
       <div class="advice-card"><h3>游戏内应用路径</h3><div class="apply-path">设置 → 控制 → 鼠标 → <b>灵敏度设置</b><br>逐项录入上方整数数值；垂直倍率支持小数。建议训练场连续使用 2–3 局后，每次只微调 ±1。</div></div>
     </section>
-    <footer class="foot"><span>PUBG SENS LAB · v1.2.0 · LOCAL AIM CALIBRATION</span><span>参数为个性化起点，并非职业选手模板。浏览器无法读取鼠标硬件的原始物理位移，360° 测试按鼠标垫宽度标尺换算。</span></footer>
+    <footer class="foot"><span>PUBG SENS LAB · v1.2.1 · LOCAL AIM CALIBRATION</span><span>参数为个性化起点，并非职业选手模板。浏览器无法读取鼠标硬件的原始物理位移，360° 测试按鼠标垫宽度标尺换算。</span></footer>
   </div>
   <div class="toast" id="toast">方案已根据最新测试刷新</div>
 
@@ -207,7 +218,7 @@
   (() => {
     const $ = id => document.getElementById(id);
     const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
-    const state = {style:'balanced',method:'wrist',tracking:null,flick:null,turn:null};
+    const state = {style:'balanced',method:'wrist',turnFeel:'neutral',tracking:null,flick:null,turn:null};
     let activeTest = null;
 
     document.querySelectorAll('[data-style]').forEach(btn => btn.addEventListener('click', () => {
@@ -217,6 +228,10 @@
     document.querySelectorAll('[data-method]').forEach(btn => btn.addEventListener('click', () => {
       document.querySelectorAll('[data-method]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active'); state.method=btn.dataset.method; generate();
+    }));
+    document.querySelectorAll('[data-turn-feel]').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-turn-feel]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); state.turnFeel=btn.dataset.turnFeel; generate();
     }));
 
     function pointerCross(arena,cross,e){
@@ -318,13 +333,15 @@
         wrist:{general:1,aim:-1,ads:-1,vertical:.03,cm:1,scope:[0,-2,-3,-5,-7,-9,-12]},
         arm:{general:-3,aim:-3,ads:-4,vertical:0,cm:1.18,scope:[0,-2,-4,-6,-8,-10,-13]}
       }[state.method];
-      base=clamp(base+methodProfile.general,5,80);
+      const tunedBase=clamp(base+methodProfile.general,5,80);
+      const turnProfile={slow:{general:6,aim:3},neutral:{general:0,aim:0},fast:{general:-5,aim:-2}}[state.turnFeel];
+      const general=clamp(tunedBase+turnProfile.general,5,90);
       const vertical=clamp(1+(55-track)*.0025+(state.style==='fast'?.05:0)+methodProfile.vertical,.70,1.35);
-      const aim=clamp(base+methodProfile.aim,0,100),ads=clamp(base+methodProfile.ads,0,100);
+      const aim=clamp(tunedBase+methodProfile.aim+turnProfile.aim,0,100),ads=clamp(tunedBase+methodProfile.ads,0,100);
       const scopes=methodProfile.scope.map(x=>clamp(Math.round(ads+x),0,100));
-      const measuredOrEstimated=state.turn?state.turn*1.12:gameCm(dpi,base);
+      const measuredOrEstimated=state.turn?state.turn*1.12:gameCm(dpi,general);
       const recommendedCm=clamp(measuredOrEstimated*methodProfile.cm,16,75);
-      $('generalOut').textContent=base;$('verticalOut').textContent=vertical.toFixed(2);$('aimOut').textContent=aim;$('adsOut').textContent=ads;$('cmOut').textContent=recommendedCm.toFixed(1);
+      $('generalOut').textContent=general;$('verticalOut').textContent=vertical.toFixed(2);$('aimOut').textContent=aim;$('adsOut').textContent=ads;$('cmOut').textContent=recommendedCm.toFixed(1);
       ['s1','s2','s3','s4','s6','s8','s15'].forEach((id,i)=>$(id).textContent=scopes[i]);
       $('cm360').textContent=recommendedCm.toFixed(1)+'cm';
       const complete=[state.tracking,state.flick,state.turn].filter(Boolean).length;
@@ -334,6 +351,8 @@
       if(state.method==='finger')tips.push('已启用手指压枪曲线：ADS、近中倍镜与垂直倍率会明显提高，让较短的手指位移也能完成压枪。若下拉过度，先把垂直倍率降低 0.02。');
       if(state.method==='wrist')tips.push('已启用手腕压枪曲线：在转向速度与连续压枪空间之间保持均衡，建议以 1× / 3× 作为优先微调项。');
       if(state.method==='arm')tips.push('已启用手臂压枪曲线：整体灵敏度更低、更稳，需要较大的鼠标垫空间；若不想大幅移动手臂，请改选“手腕”或“手指”。');
+      if(state.turnFeel==='slow')tips.push('已按“转身偏慢”校正：只提高常规灵敏度并轻微提高肩射瞄准，ADS 与各倍镜保持不变，避免破坏压枪手感。');
+      if(state.turnFeel==='fast')tips.push('已按“转身偏快”校正：降低常规与肩射瞄准，ADS 与各倍镜保持不变。');
       if(track<45)tips.push('追踪稳定度偏低：先保持本方案 3 局；若持续越过移动目标，将常规与开镜模式各降低 1。');
       else tips.push('追踪控制较稳定：近距离压枪可优先微调垂直倍率，每次调整 0.02，不要同时改倍镜。');
       if(fr>600||fh<6)tips.push('定位反应仍有提升空间：若转向总是差一点到位，先将常规灵敏度 +1，保持 ADS 不变。');
