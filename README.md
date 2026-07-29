@@ -1,98 +1,120 @@
-# vinext-starter
+# PUBG SENS LAB
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+一款面向 PUBG PC 玩家的专属灵敏度调试助手。根据鼠标 DPI、当前灵敏度、鼠标垫宽度与三项免点击准星测试，生成可直接录入 PUBG 设置页的个性化灵敏度方案。
 
-## Prerequisites
+> 当前页面按 PUBG PC Update 42.2 的设置结构设计。生成结果是适合继续训练和微调的个人起点，并非固定的职业选手模板。
+
+## 功能特点
+
+- 追踪测试（10 秒）：准星跟随移动目标，按累计悬停时间计算追踪精准度。
+- 定位测试（10 秒）：准星碰到随机目标即自动命中并换位，统计命中数与平均反应速度。
+- 360° 转身测试：结合用户输入的鼠标垫宽度，以页面标尺估算实际移动距离和推荐 `cm/360`。
+- 全程免点击：鼠标进入测试区后开始，准星碰到目标即可触发。
+- 个性化生成：综合 DPI、当前常规灵敏度、瞄准风格与测试表现计算参数。
+- 微调建议：根据追踪稳定性和定位反应给出针对性的调整方向。
+- 本地运行：不上传鼠标数据或测试结果。
+- 响应式界面：支持常见桌面与移动端浏览器尺寸。
+
+## 生成的 PUBG 参数
+
+生成器会输出以下可在游戏设置中填写的参数：
+
+| 参数 | 输出格式 |
+| --- | --- |
+| 常规灵敏度 | `0–100` 整数 |
+| 垂直灵敏度增强 | 小数倍率 |
+| 瞄准灵敏度 | `0–100` 整数 |
+| 开镜模式灵敏度 | `0–100` 整数 |
+| 1×、2×、3×、4×、6×、8×、15× 倍镜 | `0–100` 整数 |
+| 推荐转身距离 | `cm/360` |
+
+游戏内录入路径：
+
+```text
+设置 → 控制 → 鼠标 → 灵敏度设置
+```
+
+建议在训练场连续使用 2–3 局后再进行调整，并且每次只修改一个参数。普通灵敏度和倍镜灵敏度可以每次调整 `±1`，垂直倍率可以每次调整 `±0.02`。
+
+## 直接使用 HTML
+
+项目根目录提供了可独立打开的单文件版本：
+
+```text
+pubg-sensitivity.html
+```
+
+直接使用浏览器打开即可，不需要安装依赖或启动本地服务。
+
+## 本地开发
+
+环境要求：
 
 - Node.js `>=22.13.0`
+- npm
 
-## Quick Start
+安装依赖并启动开发服务器：
 
 ```bash
 npm install
 npm run dev
+```
+
+默认访问地址：
+
+```text
+http://localhost:3000
+```
+
+构建生产版本：
+
+```bash
 npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+## 项目结构
 
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```text
+.
+├── app/
+│   ├── page.tsx                 # 应用入口
+│   ├── layout.tsx               # 页面元数据与布局
+│   └── globals.css              # 应用外层样式
+├── public/
+│   └── pubg-sensitivity.html    # 站点使用的独立页面
+├── pubg-sensitivity.html        # 可直接打开的单文件版本
+└── package.json
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+## 测试说明
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+### 追踪测试
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+测试持续 10 秒。目标会按照多组周期曲线移动，页面使用准星和目标中心的实时距离判断是否悬停，并通过实际累计悬停毫秒数计算精准度。
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+### 定位测试
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+测试持续 10 秒。每次准星碰到目标后，目标会立即移动至测试区域内的随机位置。最终记录有效命中数以及从目标出现到命中的平均耗时。
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+### 360° 转身测试
 
-## Useful Commands
+浏览器无法直接读取鼠标传感器报告的物理厘米数，因此本项目使用用户填写的鼠标垫可用宽度作为屏幕标尺进行换算。该结果适合用于灵敏度比较和初始校准，不等同于专业硬件测量。
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## 注意事项
 
-## Learn More
+- 推荐关闭 Windows 的“提高指针精确度”，避免系统鼠标加速度影响手感。
+- 浏览器缩放比例、操作系统指针速度和鼠标驱动设置都可能影响测试结果。
+- 修改 DPI 后应重新完成全部测试。
+- 如果 PUBG 后续更新调整灵敏度设置结构，应以游戏内最新选项为准。
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+## 技术栈
+
+- React 19
+- Next.js 兼容 API
+- vinext
+- Vite
+- TypeScript
+
+## License
+
+本项目与 KRAFTON 或 PUBG 官方无隶属、合作或背书关系。PUBG 相关名称和商标归其各自权利人所有。
